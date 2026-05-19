@@ -1,0 +1,84 @@
+# ==========================================
+# 1. System Files
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ==========================================
+# 2. Python & Backend Specific
+# ==========================================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables (Sensitive API keys)
+.env
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+active_env/
+
+# Python distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Test / coverage / cache
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.noseids
+.spyderproject
+.spyproject
+
+# ==========================================
+# 3. Android & Frontend Specific
+# ==========================================
+# Gradle files and caches
+android/.gradle/
+android/build/
+android/app/build/
+
+# Local developer SDK configurations
+android/local.properties
+
+# Android Studio / IntelliJ IDEA configs
+android/.idea/
+android/*.iml
+android/.navigation/
+android/.cxx/
+android/captures/
+
+# Built artifacts (compiled APKs, AABs)
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+
+# Log files
+*.log
