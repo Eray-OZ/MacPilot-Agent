@@ -38,10 +38,11 @@ class AgentResponse(BaseModel):
 
 # Structured output schema for Gemini model
 class AppControlAction(BaseModel):
-    action: str = Field(description="Action to perform. Can be 'open' (to open an app), 'close' (to quit an app), or 'open_url' (to open a website in a browser).")
-    app_name: str = Field(description="Target application name (e.g., 'Spotify', 'Google Chrome', 'Safari'). Can be left empty for 'open_url' if no specific browser is requested.")
-    url: Optional[str] = Field(default=None, description="The complete URL to open if action is 'open_url' (e.g., 'https://www.google.com'). Should be null/empty otherwise.")
-    explanation: str = Field(description="A short, friendly, and natural English confirmation sentence for the user (e.g., 'Opening youtube.com in Google Chrome for you!')")
+    action: str = Field(description="Action to perform. Can be 'open' (open an app), 'close' (quit an app), 'open_url' (open a URL in browser), 'set_volume' (set audio volume level), 'mute' (mute audio), 'unmute' (unmute audio), 'lock_screen' (lock macOS session), 'sleep' (put Mac to sleep), 'play_pause' (toggle media playback), 'next_track' (skip to next track), 'previous_track' (go back to previous track), 'brightness_up' (increase screen brightness), or 'brightness_down' (decrease screen brightness).")
+    app_name: str = Field(default="", description="Target application name (e.g., 'Spotify', 'Google Chrome', 'Safari'). Leave empty if not controlling a specific app.")
+    url: Optional[str] = Field(default=None, description="The complete URL to open if action is 'open_url'. Should be null/empty otherwise.")
+    value: Optional[int] = Field(default=None, description="Numeric parameter for actions (e.g., volume level from 0 to 100 for 'set_volume'). Should be null otherwise.")
+    explanation: str = Field(description="A short, friendly, and natural English confirmation sentence for the user (e.g., 'Setting system volume to 40% for you!').")
 
 # Validate API key and initialize client
 api_key = os.getenv("GEMINI_API_KEY")
@@ -54,7 +55,7 @@ else:
     print("WARNING: GEMINI_API_KEY not found or left as default in .env file!")
 
 # Core function to execute system commands on macOS
-def execute_app_control(action: str, app_name: str, url: Optional[str] = None) -> tuple[bool, str]:
+def execute_app_control(action: str, app_name: str, url: Optional[str] = None, value: Optional[int] = None) -> tuple[bool, str]:
     action = action.strip().lower()
     app_name = app_name.strip() if app_name else ""
 
@@ -144,8 +145,153 @@ def execute_app_control(action: str, app_name: str, url: Optional[str] = None) -
             return False, f"Failed to open URL. Error details: {error_msg}"
         except Exception as e:
             return False, f"An unexpected error occurred: {str(e)}"
+
+    elif action == "set_volume":
+        if value is None:
+            return False, "Volume level value is missing."
+        try:
+            # Constrain volume between 0 and 100
+            val = max(0, min(100, value))
+            subprocess.run(
+                ["osascript", "-e", f"set volume output volume {val}"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return True, f"System volume set to {val}%."
+        except subprocess.CalledProcessError as e:
+            error_msg = e.stderr.strip() if e.stderr else str(e)
+            return False, f"Failed to set volume. Error details: {error_msg}"
+        except Exception as e:
+            return False, f"An unexpected error occurred: {str(e)}"
+
+    elif action == "mute":
+        try:
+            subprocess.run(
+                ["osascript", "-e", "set volume with output muted"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return True, "System volume muted."
+        except subprocess.CalledProcessError as e:
+            error_msg = e.stderr.strip() if e.stderr else str(e)
+            return False, f"Failed to mute system volume. Error details: {error_msg}"
+        except Exception as e:
+            return False, f"An unexpected error occurred: {str(e)}"
+
+    elif action == "unmute":
+        try:
+            subprocess.run(
+                ["osascript", "-e", "set volume without output muted"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return True, "System volume unmuted."
+        except subprocess.CalledProcessError as e:
+            error_msg = e.stderr.strip() if e.stderr else str(e)
+            return False, f"Failed to unmute system volume. Error details: {error_msg}"
+        except Exception as e:
+            return False, f"An unexpected error occurred: {str(e)}"
+
+    elif action == "lock_screen":
+        try:
+            # Secure display sleep immediately locks macOS screen if set in system preferences
+            subprocess.run(
+                ["pmset", "displaysleepnow"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return True, "macOS screen locked successfully."
+        except subprocess.CalledProcessError as e:
+            error_msg = e.stderr.strip() if e.stderr else str(e)
+            return False, f"Failed to lock macOS screen. Error details: {error_msg}"
+        except Exception as e:
+            return False, f"An unexpected error occurred: {str(e)}"
+
+    elif action == "sleep":
+        try:
+            subprocess.run(
+                ["osascript", "-e", "tell application \"System Events\" to sleep"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return True, "Mac set to sleep mode successfully."
+        except subprocess.CalledProcessError as e:
+            error_msg = e.stderr.strip() if e.stderr else str(e)
+            return False, f"Failed to sleep Mac. Error details: {error_msg}"
+        except Exception as e:
+            return False, f"An unexpected error occurred: {str(e)}"
+
+    elif action == "brightness_up":
+        try:
+            # Simulates pressing the Brightness Up key (key code 144) 3 times
+            subprocess.run(
+                ["osascript", "-e", "tell application \"System Events\" to repeat 3 times\nkey code 144\nend repeat"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return True, "System brightness increased."
+        except subprocess.CalledProcessError as e:
+            error_msg = e.stderr.strip() if e.stderr else str(e)
+            return False, f"Failed to increase screen brightness. Error details: {error_msg}"
+        except Exception as e:
+            return False, f"An unexpected error occurred: {str(e)}"
+
+    elif action == "brightness_down":
+        try:
+            # Simulates pressing the Brightness Down key (key code 145) 3 times
+            subprocess.run(
+                ["osascript", "-e", "tell application \"System Events\" to repeat 3 times\nkey code 145\nend repeat"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return True, "System brightness decreased."
+        except subprocess.CalledProcessError as e:
+            error_msg = e.stderr.strip() if e.stderr else str(e)
+            return False, f"Failed to decrease screen brightness. Error details: {error_msg}"
+        except Exception as e:
+            return False, f"An unexpected error occurred: {str(e)}"
+
+    elif action in ("play_pause", "next_track", "previous_track"):
+        # Map actions to target AppleScript functions
+        media_mapping = {
+            "play_pause": "playpause",
+            "next_track": "next track",
+            "previous_track": "previous track"
+        }
+        cmd = media_mapping[action]
+        script = f"""
+        if application "Spotify" is running then
+            tell application "Spotify" to {cmd}
+        else if application "Music" is running then
+            tell application "Music" to {cmd}
+        else
+            error "Neither Spotify nor Apple Music is running."
+        end if
+        """
+        try:
+            subprocess.run(
+                ["osascript", "-e", script],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            action_friendly = action.replace("_", " ")
+            return True, f"Media command '{action_friendly}' executed successfully."
+        except subprocess.CalledProcessError as e:
+            error_msg = e.stderr.strip() if e.stderr else str(e)
+            return False, f"Failed to control media playback. Error details: {error_msg}"
+        except Exception as e:
+            return False, f"An unexpected error occurred: {str(e)}"
+
     else:
-        return False, f"Invalid action '{action}'. Only 'open', 'close', or 'open_url' are supported."
+        return False, f"Invalid action '{action}'. System control action is not supported."
 
 
 @app.get("/")
@@ -180,13 +326,16 @@ async def run_agent(request: CommandRequest):
         # Prepare instruction prompt for Gemini 3.5 Flash model
         prompt = (
             "You are a macOS remote control assistant. Your task is to analyze the user's natural language command "
-            "and determine whether to open an app, close an app, or open a URL in a browser.\n\n"
+            "and determine the appropriate action to take.\n\n"
             "Command to analyze: '{command}'\n\n"
             "Rules:\n"
-            "1. If the user wants to open an application, set action='open'. If they want to close it, set action='close'.\n"
-            "2. If the user wants to open a website or link, set action='open_url' and put the full URL (e.g., 'https://youtube.com' or 'google.com') in the url field.\n"
-            "3. Correctly identify the application or browser name (e.g., 'open Spotify' -> 'Spotify', 'open youtube in Chrome' -> 'Google Chrome', 'open in Safari' -> 'Safari').\n"
-            "4. Write a short, friendly, and natural English confirmation sentence in the explanation field (e.g., 'Opening youtube.com in Google Chrome for you!')."
+            "1. App control: If user wants to open an app, set action='open' and specify app_name. If they want to close it, set action='close'.\n"
+            "2. URL control: If user wants to open a website, set action='open_url', put the URL in the url field (e.g. 'google.com'), and specify browser name in app_name if mentioned.\n"
+            "3. Volume control: If user wants to change volume, set action='set_volume' and parse the integer value (0 to 100) into the value field. For mute/unmute, set action='mute' or action='unmute'.\n"
+            "4. Screen & Power: If user wants to lock the screen, set action='lock_screen'. If they want to sleep the Mac, set action='sleep'.\n"
+            "5. Brightness control: If user wants screen brighter/darker, set action='brightness_up' or action='brightness_down'.\n"
+            "6. Media control: If user wants to toggle play/pause, play next track, or go back to the previous track on Spotify or Apple Music, set action='play_pause', action='next_track', or action='previous_track'.\n"
+            "7. Output explanation: Write a friendly English confirmation sentence in the explanation field (e.g. 'Muting your Mac sound now.', 'Setting volume to 50% for you!')."
         ).format(command=request.command)
 
         # Call Gemini 3.5 Flash model with structured output configuration
@@ -204,7 +353,12 @@ async def run_agent(request: CommandRequest):
         action_result = AppControlAction.model_validate_json(response.text)
 
         # Execute target action on macOS
-        success, exec_msg = execute_app_control(action_result.action, action_result.app_name, action_result.url)
+        success, exec_msg = execute_app_control(
+            action_result.action, 
+            action_result.app_name, 
+            action_result.url, 
+            action_result.value
+        )
 
         if success:
             return AgentResponse(response=action_result.explanation, status="success")

@@ -36,12 +36,13 @@ The system consists of two core components:
 | - response_schema (Pydantic)      |
 +-----------------------------------+
                  |
-                 | Pydantic Output Parsing (action, app_name, url, explanation)
+                 | Pydantic Output Parsing (action, app_name, url, value, explanation)
                  v
 +-----------------------------------+
 |     execute_app_control Function  |
 | - Python Subprocess               |
 | - MacOS Terminal / AppleScript    |
+| - Volume, Brightness, Lock, Media |
 +-----------------------------------+
                  |
                  | Executes macOS System Commands
@@ -50,6 +51,8 @@ The system consists of two core components:
 |             macOS OS              |
 | - open -a "Spotify"               |
 | - osascript -e 'quit app ...'     |
+| - pmset displaysleepnow           |
+| - AppleScript System Volume/Media |
 +-----------------------------------+
 ```
 
@@ -72,11 +75,11 @@ sequenceDiagram
     Note over Android: CircularProgressIndicator is displayed (Loading...)
     Android->>API: POST /run-agent {"command": "open Spotify"}
     API->>SDK: Calls client.models.generate_content with command, Pydantic schema, and gemini-3.5-flash
-    SDK-->>API: Returns structured JSON (action="open", app_name="Spotify", explanation="Opening Spotify for you!")
+    SDK-->>API: Returns structured JSON (action="set_volume", value=20, explanation="Setting volume to 20%!")
     
     rect rgb(240, 248, 255)
         Note over API, OS: System Action Execution Phase
-        API->>OS: Runs via Subprocess: open -a "Spotify"
+        API->>OS: Runs via Subprocess: osascript -e "set volume output volume 20"
         OS-->>API: Command execution result (Success / Error)
     end
 
@@ -109,3 +112,7 @@ sequenceDiagram
   - **Opening Apps**: Triggers `open -a "{Application Name}"` to launch programs.
   - **Closing Apps**: Triggers an AppleScript command: `osascript -e 'quit application "{Application Name}"'`. This method ensures clean and graceful termination of target apps, saving unsaved progress.
   - **Opening URLs in Browser**: Triggers `open "{URL}"` (for system default browser) or `open -a "{Browser Name}" "{URL}"` (for specific browsers). It automatically normalizes raw web addresses (e.g. `google.com` -> `https://google.com`) before execution.
+  - **Volume & Mute Control**: Adjusts system volume using `osascript -e "set volume output volume {value}"` and toggles mute/unmute status securely.
+  - **Screen Lock & Sleep**: Instantly locks the Mac screen using `pmset displaysleepnow` or puts the Mac to sleep via AppleScript.
+  - **Brightness Adjustment**: Simulates macOS Brightness Up (F14) and Brightness Down (F15) keys using native System Events.
+  - **Media Control**: Intelligently auto-detects running media players (Spotify or Apple Music) and sends play/pause, next track, or previous track commands via AppleScript.
